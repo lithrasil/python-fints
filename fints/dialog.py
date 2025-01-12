@@ -101,6 +101,8 @@ class FinTSDialog:
                 self.open = False
                 if isinstance(e, (FinTSConnectionError, FinTSClientError)):
                     raise
+                elif isinstance(e, FinTSInvalidTANMedium):
+                    raise FinTSInvalidTANMedium                    
                 else:
                     raise FinTSDialogInitError("Couldn't establish dialog with bank, Authentication data wrong?") from e
             finally:

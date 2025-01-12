@@ -44,3 +44,6 @@ class FinTSUnsupportedOperation(FinTSError):
 
 class FinTSNoResponseError(FinTSError):
     pass
+
+class FinTSInvalidTANMedium(FinTSError):
+    pass

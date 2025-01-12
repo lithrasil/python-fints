@@ -248,8 +248,14 @@ class FinTS3Client:
     def __enter__(self):
         if self._standing_dialog:
             raise Exception("Cannot double __enter__() {}".format(self))
-        self._standing_dialog = self._get_dialog()
-        self._standing_dialog.__enter__()
+        try:
+            self._standing_dialog = self._get_dialog()
+            self._standing_dialog.__enter__()
+        except FinTSInvalidTANMedium as e:
+            self.selected_tan_medium = ''
+            self._standing_dialog = None
+            self._standing_dialog = self._get_dialog()
+            self._standing_dialog.__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self._standing_dialog:
@@ -1462,6 +1468,9 @@ class FinTS3PinTanClient(FinTS3Client):
                     self._standing_dialog.open = False
             else:
                 raise FinTSSCARequiredError("This operation requires strong customer authentication.")
+            
+        if response.code == '9955':
+            raise FinTSInvalidTANMedium()
 
     def get_tan_mechanisms(self):
         """
