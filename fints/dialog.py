@@ -86,12 +86,13 @@ class FinTSDialog:
 
                 if tan_seg:
                     for resp in retval.responses(tan_seg):
-                        if resp.code == '0030':
+                        if resp.code in ('0030', '3955'):
                             tan_request = NeedTANResponse(
                                 None,
                                 retval.find_segment_first('HITAN'),
                                 '_continue_dialog_initialization',
-                                self.client.is_challenge_structured()
+                                self.client.is_challenge_structured(),
+                                resp.code == '3955',
                             )
                             self.client.process_tan_request(tan_request)
                 self.need_init = False
@@ -100,6 +101,8 @@ class FinTSDialog:
                 self.open = False
                 if isinstance(e, (FinTSConnectionError, FinTSClientError)):
                     raise
+                elif isinstance(e, FinTSInvalidTANMedium):
+                    raise FinTSInvalidTANMedium                    
                 else:
                     raise FinTSDialogInitError("Couldn't establish dialog with bank, Authentication data wrong?") from e
             finally:

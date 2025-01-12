@@ -9,6 +9,9 @@ Holding = namedtuple('Holding',
 
 
 class StatementOfHoldings:
+    
+    def __init__(self):
+        self.total_value = 0.0
+        self.holdings = []
 
-    total_value = 0.0
-    holdings = []
+    
