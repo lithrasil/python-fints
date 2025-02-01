@@ -178,6 +178,9 @@ class MT535_Miniparser:
                 m = self.re_identification.match(clause)
                 if m:
                     isin = m.group(1)
+                    wkn = m.group(2)
+                    if wkn.startswith('/DE/'):
+                        wkn = wkn[4:]
                     name = m.group(3)
                 # current market price
                 # e.g. ':90B::MRKT//ACTU/EUR38,82'
@@ -214,7 +217,7 @@ class MT535_Miniparser:
             # processed all clauses
             retval.holdings.append(
                 Holding(
-                    ISIN=isin, name=name, market_value=market_price,
+                    ISIN=isin, WKN=wkn, name=name, market_value=market_price,
                     value_symbol=price_symbol, valuation_date=price_date,
                     pieces=pieces, total_value=total_value,
                     acquisitionprice=acquisitionprice))
