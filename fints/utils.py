@@ -157,10 +157,11 @@ class MT535_Miniparser:
     re_marketprice = re.compile(r"^:90B::MRKT\/\/ACTU\/([A-Z]{3})(\d*),{1}(\d*)$")
     re_pricedate = re.compile(r"^:98A::PRIC\/\/(\d*)$")
     re_pricedate_time = re.compile(r"^:98C::PRIC\/\/(\d*)$")
+    re_70c = re.compile(r"^:70C::SUBB//.*? (\d+\.\d+)([A-Z]{3}) (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+)")
     re_pieces = re.compile(r"^:93B::AGGR\/\/UNIT\/(\d*),(\d*)$")
     re_totalvalue = re.compile(r"^:19A::HOLD\/\/([A-Z]{3})(\d*),{1}(\d*)$")
-    re_depot_totalvalue = re.compile(r"^:19A::HOLP\/\/([A-Z]{3})(\d*),{1}(\d*)$")
-    re_acquisitionprice = re.compile(r"^:70E::HOLD\/\/\d*STK\|2(\d*?),{1}(\d*?)\+([A-Z]{3})$")
+    re_depot_totalvalue = re.compile(r"^:19A::HOLP\/\/([A-Z]{3})(\d*),{1}(\d*)$")    
+    re_acquisitionprice = re.compile(r"^:70E::HOLD\/\/\d*STK(?:\+\+\+\+\d{8}\+)?\|2(\d*?),{1}(\d*?)\+([A-Z]{3})$")
 
     def parse(self, lines):
         retval = StatementOfHoldings()
@@ -181,6 +182,8 @@ class MT535_Miniparser:
                     wkn = m.group(2)
                     if wkn.startswith('/DE/'):
                         wkn = wkn[4:]
+                    else:
+                        wkn = None
                     name = m.group(3)
                 # current market price
                 # e.g. ':90B::MRKT//ACTU/EUR38,82'
@@ -198,6 +201,14 @@ class MT535_Miniparser:
                 if m:
                     price_date = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
                     
+                # current market price, date and time from segment 70C
+                # e.g. ' :70C:: SUBB//1 NVIDIA CORP. DL-,0011213 EDE 122.400000000EUR 2025-02-27T19:13:26.8914 119.94EUR US67066G1040, 1/SHS'
+                m = self.re_70c.match(clause)
+                if m:
+                    market_price = float(m.group(1))    
+                    price_symbol = m.group(2)
+                    price_date = datetime.strptime(m.group(3), "%Y-%m-%dT%H:%M:%S.%f")                        
+                
                 # number of pieces
                 # e.g. ':93B::AGGR//UNIT/16,8211'
                 m = self.re_pieces.match(clause)
