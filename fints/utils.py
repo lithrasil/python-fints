@@ -12,20 +12,81 @@ except ImportError:
 
 from .models import StatementOfHoldings
 import mt940
+from mt940.processors import DETAIL_KEYS
+import collections
 
 from .models import Holding
 
 
-def mt940_to_array(data):
+def _parse_mt940_details(detail_str, space=False):
+    result = collections.defaultdict(list)
+
+    tmp = collections.OrderedDict()
+    segment = ''
+    segment_type = ''
+
+    for index, char in enumerate(detail_str):
+        if char != '?':
+            segment += char
+            continue
+
+        if index + 2 >= len(detail_str):
+            break
+
+        tmp[segment_type] = segment if not segment_type else segment[2:]
+        segment_type = detail_str[index + 1] + detail_str[index + 2]
+        segment = ''
+
+    if segment_type:  # pragma: no branch
+        tmp[segment_type] = segment if not segment_type else segment[2:]
+
+    for key, value in tmp.items():
+        if key in DETAIL_KEYS:
+            result[DETAIL_KEYS[key]].append(value)
+        elif key == '33':
+            key32 = DETAIL_KEYS['32']
+            result[key32].append(value)
+        elif key.startswith('2'):
+            key20 = DETAIL_KEYS['20']
+            result[key20].append(value)
+        elif key in {'60', '61', '62', '63', '64', '65'}:
+            key60 = DETAIL_KEYS['60']
+            result[key60].append(value)
+
+    joined_result = dict()
+    for key in DETAIL_KEYS.values():
+        # Add actual line breaks for the purpose field
+        if key == 'purpose':
+            separator = '\n'
+        else:
+            if space:
+                separator = ' '
+            else:
+                separator = ''
+        if space:
+            value = separator.join(result[key])
+        else:
+            value = separator.join(result[key])
+
+        joined_result[key] = value or None
+
+    return joined_result
+
+def mt940_to_array(data):       
     # The data string might contain multiple MT940 strings separated by a new line character and "-"
     # Split this string and parse each MT940 individually   
+    
+    # Override the _parse_mt940_details function in the mt940 module
+    # so that line breaks are added to the purpose field
+    mt940.processors._parse_mt940_details = _parse_mt940_details
+    
     mt940_split = re.split(r'(?<=\r\n-)(?=\r\n)', data)
     result = []
     for mt940_string in mt940_split:   
         if mt940_string == '':
             break     
         mt940_string = mt940_string.replace("@@", "\r\n")
-        mt940_string = mt940_string.replace("-0000", "+0000")        
+        mt940_string = mt940_string.replace("-0000", "+0000")
         transactions = mt940.models.Transactions()
         transactions.parse(mt940_string)
         result.append(transactions)
