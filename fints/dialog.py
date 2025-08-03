@@ -86,20 +86,16 @@ class FinTSDialog:
 
                 if tan_seg:
                     for resp in retval.responses(tan_seg):
-                        if resp.code in ('0030', '3955'):
-                            tan_request = NeedTANResponse(
+                        if resp.code in ('0030', '3955'):                                                    
+                            self.client.init_tan_response = NeedTANResponse(
                                 None,
                                 retval.find_segment_first('HITAN'),
                                 '_continue_dialog_initialization',
                                 self.client.is_challenge_structured(),
-                                False,
-                            )
-                            
-                            self.client.process_tan_request(tan_request)
-                            
-                            if resp.code == '3955':
-                                self.client.init_tan_response.decoupled = True
-                                break
+                                resp.code == '3955',
+                            )                           
+                          
+                            self.client.process_tan_request(self.client.init_tan_response)
                             
 
                 self.need_init = False
