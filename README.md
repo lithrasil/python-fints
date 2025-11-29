@@ -23,6 +23,13 @@ Limitations
   * SEPA transfers and debits (only with required TAN and with specific TAN methods)
 * Supports Python 3.9+
 
+
+Security
+--------
+
+If you discover a security issue, please contact us at security@pretix.eu and see our [Responsible Disclosure Policy](https://docs.pretix.eu/trust/security/disclosure/) further information.
+
+
 Credits and License
 -------------------
 
@@ -32,4 +39,4 @@ and features major contributions by Henryk Plötz.
 Further thanks for improving this library go out to:
 Daniel Nowak, Patrick Braune, Mathias Dalheimer, Christopher Grebs, Markus Schindler, and many more.
 
-License: LGPL
+License: LGPL-3.0.-or-later

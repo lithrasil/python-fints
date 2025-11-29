@@ -15,3 +15,7 @@ class StatementOfHoldings:
         self.holdings = []
 
     
+
+Amount = namedtuple('Amount', 'amount currency')
+
+Transaction = namedtuple('Transaction', 'data')
