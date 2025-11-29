@@ -91,6 +91,21 @@ a file:
        writer.write(result.challenge_matrix[1])
        writer.close()
 
+Some banks, like Comdirect, may provide the challenge within the ``challenge_hhduc`` attribute. We provide a helper function to decode the challenge. Pass the ``challenge_hhduc`` value to this method:
+
+.. autofunction:: fints.hhd.utils.decode_phototan_image
+
+This returns a dictionary with a ``mime_type`` and an ``image`` field. The ``image`` field contains the binary data
+of the image itself and can e.g. be written to a file
+
+.. code-block:: python
+    from fints.utils import decode_phototan_image
+
+    data = decode_phototan_image(challenge_hhduc)
+    writer = open("tan.png", "wb")
+    writer.write(data["image"])
+    writer.close()
+
 Sending the TAN
 ---------------
 
@@ -206,12 +221,32 @@ A full example on how to get transactions if a TAN is required. If a TAN is requ
 
     from credentials import blz, username, password, hbci_backend
 
+    product_id = "CHANGE_ME"
+
+    def ask_for_tan(f, response):
+        print("A TAN is required")
+        print(response.challenge)
+        if getattr(response, 'challenge_hhduc', None):
+            try:
+                terminal_flicker_unix(response.challenge_hhduc)
+            except KeyboardInterrupt:
+                pass
+        if response.decoupled:
+            tan = input('Please press enter after confirming the transaction in your app:')
+        else:
+            tan = input('Please enter TAN:')
+        return f.send_tan(response, tan)
+
     client = FinTS3PinTanClient(blz,
                                 username,
                                 password,
-                                hbci_backend)
+                                hbci_backend,
+                                product_id=product_id)
     minimal_interactive_cli_bootstrap(client)
     with client:
+        while isinstance(client.init_tan_response, NeedTANResponse):
+            client.init_tan_response = ask_for_tan(client, client.init_tan_response)
+
         accounts = client.get_sepa_accounts()
         for account in accounts:
             print(f"Doing {account.iban}")
@@ -219,17 +254,7 @@ A full example on how to get transactions if a TAN is required. If a TAN is requ
                                              start_date=datetime.datetime.now() - datetime.timedelta(days=100),
                                              end_date=datetime.datetime.now())
             if isinstance(result, NeedTANResponse):
-                print("TAN is required")
-                if getattr(result, 'challenge_hhduc', None):
-                    # Smart-TAN with flicker
-                    try:
-                        terminal_flicker_unix(result.challenge_hhduc)
-                    except KeyboardInterrupt:
-                        pass
-                # else: mobile TAN/manual Smart-TAN/... is used
-                print(result.challenge)
-                tan = input('Please enter TAN:')
-                result = client.send_tan(result, tan)
+                result = ask_for_tan(client, result)
             else:
                 print("No TAN is required")
             print(f"Got {len(result)} transactions for {account.iban}")
