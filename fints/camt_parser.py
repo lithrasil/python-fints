@@ -77,6 +77,7 @@ mnemonics = {
     'Adddm': 'Addendum',
     'Addtn': 'Addition',
     'Addtl': 'Additional',
+    'AddtlNtryInf': 'AdditionalEntryInformation',
     'Adr': 'Address',
     'Adrs': 'Addresses',
     'Adqcy': 'Adequacy',
@@ -664,6 +665,7 @@ mnemonics = {
     'Dbtd': 'Debited',
     'Debt': 'Debt',
     'Dbtr': 'Debtor',
+    'DbtrAgt': 'DebtorAgent',
     'Dcsd': 'Deceased',
     'Dcml': 'Decimal',
     'Dcmlstn': 'Decimalisation',
@@ -1042,6 +1044,7 @@ mnemonics = {
     'Finc': 'Finance',
     'Fincd': 'Financed',
     'Fin': 'Financial',
+    'FinInstnId': 'FinancialInstitutionIdentification',
     'FI': 'FinancialInstitution',
     'Fincg': 'Financing',
     'Fire': 'Fire',
@@ -2148,6 +2151,7 @@ mnemonics = {
     'Rjctn': 'Rejection',
     'Rjctns': 'Rejections',
     'Rltd': 'Related',
+    'RltdAgts': 'RelatedAgents',
     'Rltsh': 'Relationship',
     'Rltv': 'Relative',
     'Rlay': 'Relay',
@@ -2977,5 +2981,37 @@ def camt053_to_dict(xml_data, translate=True):
         record_data = _parse_element(record, translate=translate)
         _add_backwards_compat_keys(record_data, currency)
         data.append(record_data)
+
+    return data
+
+def camt053_to_dict_with_balances(xml_data, translate=True):
+    root = etree.fromstring(xml_data)
+    data = {
+        'currency': None,
+        'transactions': [],
+        'balances': []
+    }
+
+    for elem in root.getiterator():
+        if not hasattr(elem.tag, 'find'):
+            continue
+        ind = elem.tag.find('}')
+        if ind > 0:
+            elem.tag = elem.tag[ind+1:]
+
+    currency = root.xpath('//Rpt/Acct/Ccy')[0].text
+    elements = root.xpath('//Ntry')
+
+    for record in elements:
+        record_data = _parse_element(record, translate=translate)
+        _add_backwards_compat_keys(record_data, currency)
+        data['transactions'].append(record_data)
+        
+    balance_elements = root.xpath('//Bal')
+    for balance_record in balance_elements:
+        balance_data = _parse_element(balance_record, translate=translate)
+        data['balances'].append(balance_data)
+
+    data['currency'] = currency
 
     return data

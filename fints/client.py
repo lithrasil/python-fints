@@ -11,7 +11,7 @@ import bleach
 from sepaxml import SepaTransfer
 
 from . import version
-from .camt_parser import camt053_to_dict
+from .camt_parser import camt053_to_dict, camt053_to_dict_with_balances
 from .connection import FinTSHTTPSConnection
 from .dialog import FinTSDialog
 from .exceptions import *
@@ -617,7 +617,7 @@ class FinTS3Client:
         return responses
 
     def get_transactions_xml(self, account: SEPAAccount, start_date: datetime.date = None,
-                             end_date: datetime.date = None, supported_camt_messages = None) -> list:
+                             end_date: datetime.date = None, supported_camt_messages = None, include_pending = False) -> list:
         """
         Fetches the list of transactions of a bank account in a certain timeframe as camt XML files.
         Returns both booked and pending transactions.
@@ -633,7 +633,17 @@ class FinTS3Client:
         self._check_operation(account, FinTSOperations.GET_TRANSACTIONS_XML)
         with self._get_dialog() as dialog:
             hkcaz = self._find_highest_supported_command(HKCAZ1)
-            return self._get_transactions_xml(dialog, hkcaz, account, start_date, end_date, supported_camt_messages)
+            booked_streams, pending_streams = self._get_transactions_xml(dialog, hkcaz, account, start_date, end_date, supported_camt_messages)
+        
+        statements = []
+        for s in booked_streams:
+            statements += [camt053_to_dict_with_balances(s)]            
+            
+        if include_pending:
+            for s in pending_streams:
+                statements += [camt053_to_dict_with_balances(s)]
+            
+        return statements
 
     def get_credit_card_transactions(self, account: SEPAAccount, credit_card_number: str, start_date: datetime.date = None, end_date: datetime.date = None):
         
