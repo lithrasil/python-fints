@@ -545,7 +545,13 @@ class FinTS3Client:
                 return self._get_transactions_mt940(dialog, hkkaz, account, start_date, end_date, include_pending)
             except FinTSUnsupportedOperation:
                 hkcaz = self._find_highest_supported_command(HKCAZ1)
-                booked_streams, pending_streams = self._get_transactions_xml(dialog, hkcaz, account, start_date, end_date)
+                response = self._get_transactions_xml(dialog, hkcaz, account, start_date, end_date)
+
+                # If a TAN is required, exit early
+                if isinstance(response, NeedTANResponse):
+                    return response
+
+                booked_streams, pending_streams = response
                 transactions = []
                 for s in booked_streams:
                     transactions += [Transaction(t) for t in camt053_to_dict(s)]
@@ -1567,7 +1573,8 @@ class FinTS3PinTanClient(FinTS3Client):
                     hivpp = response.find_segment_first(HIVPP1, throw=True)
 
                     vop_result = hivpp.vop_single_result
-                    if vop_result.result in ('RVNA', 'RVNM', 'RVMC'):  # Not Applicable, No Match, Close Match
+                     # Not Applicable, No Match, Close Match, or exact match but still requires confirmation
+                    if vop_result.result in ('RVNA', 'RVNM', 'RVMC')  or (vop_result.result == 'RCVC' and '3945' in [res.code for res in response.responses(tan_seg)]): 
                         return NeedVOPResponse(
                             vop_result=hivpp,
                             command_seg=command_seg,
