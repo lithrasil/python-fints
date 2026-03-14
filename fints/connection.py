@@ -1,4 +1,5 @@
 import base64
+import datetime
 import io
 import logging
 
@@ -28,15 +29,31 @@ class FinTSHTTPSConnection:
     def __init__(self, url):
         self.url = url
         self.session = requests.session()
+        self._message_log = []
 
     def send(self, msg: FinTSMessage):
         log_out = io.StringIO()
         with Password.protect():
             log_msg = reduce_message_for_log(msg)
             log_msg.print_nested(stream=log_out, prefix="\t")
-            logger.debug("Sending {}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n{}\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n".format("(abbrv.)" if log_configuration.reduced else "", log_out.getvalue()))
-            log_out.truncate(0)
+            logger.debug("Sending {}>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n{}\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n".format("(abbrv.)" if log_configuration.reduced else "", log_out.getvalue()))             
 
+        ts = datetime.datetime.now(datetime.timezone.utc)
+        try:
+            self._message_log.append({
+                'sequence': len(self._message_log) + 1,
+                'direction': 'sent',
+                'timestamp': ts,
+                'message': msg,
+                'raw': msg.render_bytes(),
+                'log_msg': log_out.getvalue(),
+            })
+        except Exception:
+            # Do not fail if logging cannot be appended
+            pass
+        
+        log_out.truncate(0)
+        
         r = self.session.post(
             self.url, data=base64.b64encode(msg.render_bytes()),
             headers={
@@ -49,9 +66,32 @@ class FinTSHTTPSConnection:
 
         response = base64.b64decode(r.content.decode('iso-8859-1'))
         retval = FinTSInstituteMessage(segments=response)
-
+        
         with Password.protect():
             log_msg = reduce_message_for_log(retval)
             log_msg.print_nested(stream=log_out, prefix="\t")
             logger.debug("Received {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n{}\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n".format("(abbrv.)" if log_configuration.reduced else "", log_out.getvalue()))
+
+        ts_recv = datetime.datetime.now(datetime.timezone.utc)
+        try:
+            self._message_log.append({
+                'sequence': len(self._message_log) + 1,
+                'direction': 'received',
+                'timestamp': ts_recv,
+                'message': retval,
+                'raw': response,
+                'log_msg': log_out.getvalue(),
+            })
+        except Exception:
+            pass       
+            
         return retval
+    
+    
+    def get_message_log(self):
+        """Returns a list of all sent and received messages with timestamps and raw data."""
+        return self._message_log
+    
+    def clear_message_log(self):
+        """Clears the stored message log."""
+        self._message_log.clear()

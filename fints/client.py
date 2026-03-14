@@ -194,6 +194,7 @@ class FinTS3Client:
         self.mode = mode
         self.init_tan_response = None
         self._standing_dialog = None
+        self._dialog_id = None
 
         if from_data:
             self.set_data(bytes(from_data))
@@ -272,6 +273,7 @@ class FinTS3Client:
         else:
             raise Exception("Cannot double __exit__() {}".format(self))
 
+        self._dialog_id = self._standing_dialog.dialog_id
         self._standing_dialog = None
 
     def _get_dialog(self, lazy_init=False):
@@ -1306,6 +1308,33 @@ class FinTS3PinTanClient(FinTS3Client):
         self._bootstrap_mode = True
         self.tan_request_handler = tan_request_handler
         super().__init__(bank_identifier=bank_identifier, user_id=user_id, customer_id=customer_id, *args, **kwargs)
+
+    def get_dialog_messages(self):
+        """Return information about the current dialog and its message log.
+
+        The return value is a dictionary with two keys:
+
+        * ``dialog_id`` – the identifier of the currently open dialog, or ``None``
+          if no dialog is standing.
+        * ``messages`` – a list containing a shallow copy of the message log. Each
+          entry is a dict with keys ``'direction'``, ``'timestamp'`` and
+          ``'message'`` (and possibly other auxiliary data depending on the
+          underlying connection implementation).
+        """
+        log = list(self.connection.get_message_log())
+        dialog_id = None
+        if self._standing_dialog:
+            dialog_id = self._standing_dialog.dialog_id
+        else:
+            dialog_id = self._dialog_id
+        return {
+            'dialog_id': dialog_id,
+            'messages': log,
+        }
+
+    def clear_message_log(self):
+        """Clear the stored message log."""
+        self.connection.clear_message_log()
 
     def _new_dialog(self, lazy_init=False):
         if self.pin is None:
